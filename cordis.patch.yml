@@ -1,0 +1,13 @@
+# OpenBook RSS Reader bundle overlay.
+#
+# Load with:  dsh web --patch ./cordis.patch.yml
+# or install as a bundle:  dsh plugin --profile web add @openbook/dsh-rss-reader
+#
+# The entry is inserted into the web profile; the client half is picked up
+# automatically from the package's `dsh.client` declaration.
+- insert:
+    - id: openbook-rss
+      name: '@openbook/dsh-rss-reader'
+      # config:
+      #   dataDir: ~/.dsh/openbook-rss/v1
+      #   startupSync: true

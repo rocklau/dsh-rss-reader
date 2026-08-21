@@ -1,0 +1,16 @@
+node_modules
+package-lock.json
+data
+dist
+legacy
+.shots
+.entire/
+pretext
+*.log
+*.opml
+.agents
+.trae
+.claude
+.codeartsdoer
+.playwright-mcp
+.sisyphus
