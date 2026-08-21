@@ -56,13 +56,24 @@ The same functionality is available to the agent:
 
 ## Installation
 
-```sh
-# from npm (once published)
-dsh plugin --profile web add @openbook/dsh-rss-reader
+### As a dsh bundle (recommended)
 
-# or straight from this repository
-git clone https://github.com/rocklau/dsh-rss-reader.git
-dsh plugin --profile web add ./dsh-rss-reader
+The package ships a pre-built client bundle in `lib/` and declares
+`dsh.bundle` + `dsh.client`, so it installs with the plugin CLI. Grab the
+tarball from the [latest release](https://github.com/rocklau/dsh-rss-reader/releases)
+and add it (no npm account needed):
+
+```sh
+dsh plugin add https://github.com/rocklau/dsh-rss-reader/releases/download/v0.1.0-rc.1/openbook-dsh-rss-reader-0.1.0-rc.1.tgz
+```
+
+This injects the `openbook-rss` row into your profile's composition; the
+browser plugin is served from `lib/client.js`. A local checkout works the
+same way: `dsh plugin add ./dsh-rss-reader`.
+
+```sh
+# or from npm (once published)
+dsh plugin --profile web add @openbook/dsh-rss-reader
 
 # then just start the web UI
 dsh web

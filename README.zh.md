@@ -48,13 +48,22 @@ Cordis 服务运行在 dsh 插件运行时里。
 
 ## 安装
 
+### 作为 dsh bundle（推荐）
+
+包内置预构建的客户端 bundle（`lib/`）并声明了 `dsh.bundle` + `dsh.client`，
+可直接用插件 CLI 安装。从[最新 release](https://github.com/rocklau/dsh-rss-reader/releases)
+下载 tarball 并添加（无需 npm 账号）：
+
+```sh
+dsh plugin add https://github.com/rocklau/dsh-rss-reader/releases/download/v0.1.0-rc.1/openbook-dsh-rss-reader-0.1.0-rc.1.tgz
+```
+
+这会向 profile 的组合注入 `openbook-rss` 行；浏览器插件由 `lib/client.js` 提供。
+本地检出同理：`dsh plugin add ./dsh-rss-reader`。
+
 ```sh
 # 从 npm（发布后）
 dsh plugin --profile web add @openbook/dsh-rss-reader
-
-# 或直接从本仓库
-git clone https://github.com/rocklau/dsh-rss-reader.git
-dsh plugin --profile web add ./dsh-rss-reader
 
 # 然后启动 Web UI
 dsh web
