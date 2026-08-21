@@ -102,5 +102,12 @@ test('rssApi endpoints are claimed by the gateway and respond over the real tran
   const reading = await rpc('rssApi/setReading', { request: { sessionId: 'nonexistent', articleId: 'nonexistent' } })
   assert.equal(reading.status, 200, `rssApi/setReading returned HTTP ${reading.status} (endpoint not claimed)`)
 
+  // The discuss buttons (总结/翻译/提取要点/发送) all call discussArticle; prove
+  // it is CLAIMED (HTTP 200 even for a bogus session) so the UI never hits 404.
+  const discuss = await rpc('rssApi/discussArticle', { request: { sessionId: 'nonexistent', articleId: 'nonexistent' } })
+  assert.equal(discuss.status, 200, `rssApi/discussArticle returned HTTP ${discuss.status} (endpoint not claimed)`)
+  const reason = discuss.body?.result?.value?.reason
+  assert.equal(reason, 'session not found', `discussArticle answered a business reason, got: ${reason}`)
+
   killTree()
 })
