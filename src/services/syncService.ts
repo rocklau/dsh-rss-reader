@@ -1,6 +1,4 @@
-import { randomUUID } from 'node:crypto'
 import { Service, type Context } from '@deepseek-ai/cordis'
-import type { Session } from '@deepseek-ai/dsh-session'
 import type { RssSyncSummary } from '../events/rssEvents.ts'
 import type { ArticleService } from './articleService.ts'
 import type { FeedService } from './feedService.ts'
@@ -20,8 +18,6 @@ export interface SyncOptions {
   reason?: string
   verbose?: boolean
   force?: boolean
-  /** Optional session to emit durable rss/sync-* events into. */
-  session?: Session | null
 }
 
 /** Sync run outcome. */
@@ -116,6 +112,13 @@ export class SyncService extends Service {
   /**
    * Fetch feeds, persist new articles, and summarize. Re-entrant: a second
    * call while one run is in flight returns the in-flight run.
+   *
+   * Sync progress is deliberately NOT written into the session log: custom
+   * event families cannot be marked `ignorable` through the current
+   * `Session.append()` surface, so a log containing them is refused outright
+   * by any cold history read (`SessionFormatUnsupportedError`) — poisoning
+   * every session the sync ever ran in. Live status flows through
+   * {@link getSyncStatus} / rssApi instead.
    */
   async warmSync(options: SyncOptions = {}): Promise<SyncResult> {
     if (this.state.inFlight) return this.state.inFlight
@@ -123,21 +126,12 @@ export class SyncService extends Service {
     const reason = options.reason ?? 'manual'
     const limit = options.limit ?? 50
     const timeoutMs = options.timeoutMs ?? 0
-    const session = options.session ?? null
-    const syncId = randomUUID()
 
     this.state.status = 'running'
     this.state.reason = reason
     this.state.startedAt = new Date().toISOString()
     this.state.finishedAt = null
     this.state.lastError = null
-
-    session?.append('openbook-rss/sync-start', {
-      syncId,
-      reason,
-      startedAt: this.state.startedAt,
-      feedCount: this.feeds.reader.feeds.length,
-    })
 
     const countArticles = () => this.store.repositories.countArticles()
 
@@ -158,16 +152,6 @@ export class SyncService extends Service {
             force: options.force,
           })
           await this.articles.processArticles(articles)
-          for (const article of articles) {
-            session?.append('openbook-rss/sync-progress', {
-              syncId,
-              feedUrl: article.feedUrl,
-              feedTitle: article.feedTitle,
-              status: 200,
-              fromCache: false,
-              reason: 'persisted',
-            })
-          }
           return articles.length
         }
 
@@ -183,7 +167,6 @@ export class SyncService extends Service {
         this.state.lastCount = count
         this.state.lastSummary = summary
 
-        session?.append('openbook-rss/sync-end', { syncId, status: 'success', count, summary })
         return {
           ok: true,
           status: 'success',
@@ -199,13 +182,6 @@ export class SyncService extends Service {
         this.state.lastError = (error as Error).message
         this.state.lastSummary = null
 
-        session?.append('openbook-rss/sync-end', {
-          syncId,
-          status: timedOut ? 'timeout' : 'error',
-          count: 0,
-          summary: summarize(beforeCount, countArticles()),
-          error: this.state.lastError,
-        })
         return {
           ok: false,
           status: this.state.status,

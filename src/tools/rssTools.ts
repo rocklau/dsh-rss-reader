@@ -39,7 +39,6 @@ export function registerRssTools(ctx: Context): void {
       const result = await ctx.rssSync.warmSync({
         limit: args.limit ?? 50,
         reason: args.reason ?? 'agent',
-        session: exec.agent?.session ?? null,
       })
       if (!result.ok) return `Sync failed (${result.status}): ${result.error ?? 'unknown error'}`
       const summary = result.summary
@@ -132,15 +131,6 @@ export function registerRssTools(ctx: Context): void {
       })
       if (!result.ok) return `Materialize failed: ${result.error ?? 'unknown error'}`
       const base = result.skipped ? 'Already materialized' : 'Materialized'
-      exec.agent?.session?.append('openbook-rss/article-materialized', {
-        articleId: result.articleId ?? '',
-        title: args.title ?? '',
-        url: args.url,
-        feedUrl: args.feedUrl ?? '',
-        markdownPath: result.markdownPath ?? '',
-        skipped: result.skipped ?? false,
-        reason: result.reason ?? 'materialized',
-      })
       return `${base}: ${result.markdownPath} (${result.reason ?? 'ok'})`
     },
   }))

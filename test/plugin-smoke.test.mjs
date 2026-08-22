@@ -62,3 +62,37 @@ test('plugin loads into a cordis context and registers services, tools, commands
   assert.ok(endpoints.includes('rssApi/discussArticle'), 'discussArticle endpoint declared')
   assert.ok(endpoints.includes('rssApi/setReading'), 'setReading endpoint declared')
 })
+
+test('warmSync never writes into the session log', async () => {
+  const plugin = await import('../lib/index.js')
+  const dataDir = mkdtempSync(join(tmpdir(), 'openbook-heal-'))
+  const ctx = new Context()
+
+  ctx.provide('tools', { register: () => () => {} })
+  ctx.provide('commands', { register: () => () => {} })
+  ctx.provide('typert', {
+    remotes: { register: () => () => {} },
+    local: { get: () => undefined, hasSeen: () => false },
+  })
+
+  await ctx.plugin(plugin, {
+    config: {
+      dataDir,
+      allowPrivateFeeds: true,
+      startupSync: false,
+      opmlFiles: [],
+      defaultFeeds: [],
+    },
+  })
+
+  // Regression guard: custom event families cannot be marked `ignorable`
+  // through Session.append, so ANY append of an openbook-rss/* type makes the
+  // whole log unloadable on cold history reads. The writer must stay silent.
+  const appends = []
+  const result = await ctx.rssSync.warmSync({
+    reason: 'test',
+    session: { append: (...args) => appends.push(args) },
+  })
+  assert.equal(result.ok, true, 'sync succeeds on an empty store')
+  assert.deepEqual(appends, [], 'warmSync must not append any openbook-rss/* events')
+})

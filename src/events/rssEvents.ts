@@ -1,9 +1,11 @@
 /**
- * Durable session events emitted by the OpenBook RSS plugin. The client
- * assembles these into conversation nodes (see client/nodes/syncDefinition.ts).
+ * Payload shapes for OpenBook RSS sync activity. These records are pure
+ * telemetry: they are intentionally NOT written into the shared session log
+ * (custom event families there refuse cold history reads — see
+ * SyncService.warmSync), so this file carries no SessionEventMap
+ * augmentation. The client half keeps its own copy of these types for
+ * rendering historical rows in already-healed logs.
  */
-import type { SessionId } from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-session/types'
 
 /** Summary counters for one sync run. */
 export interface RssSyncSummary {
@@ -57,33 +59,3 @@ export interface RssArticleMaterializedData {
   reason: string
 }
 
-declare module '@deepseek-ai/dsh-session/types' {
-  interface SessionEventMap {
-    /**
-     * Opens one OpenBook RSS sync run.
-     * @mode emit
-     * @param data - stable identity, reason, and feed count.
-     */
-    'openbook-rss/sync-start': RssSyncStartData
-    /**
-     * Records one checked feed within a sync run.
-     * @mode emit
-     * @param data - stable identity plus the feed's fetch outcome.
-     */
-    'openbook-rss/sync-progress': RssSyncProgressData
-    /**
-     * Closes one sync run with its summary.
-     * @mode emit
-     * @param data - stable identity plus the final outcome.
-     */
-    'openbook-rss/sync-end': RssSyncEndData
-    /**
-     * One article was materialized to local markdown.
-     * @mode emit
-     * @param data - article identity and markdown path.
-     */
-    'openbook-rss/article-materialized': RssArticleMaterializedData
-  }
-}
-
-export type RssSessionId = SessionId

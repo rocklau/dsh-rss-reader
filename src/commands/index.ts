@@ -149,7 +149,6 @@ export function registerCommands(ctx: Context): void {
       limit,
       timeoutMs,
       reason: 'command',
-      session: invocation.agent.session ?? null,
     })
     if (!result.ok) return fail(`Sync failed (${result.status}): ${result.error ?? ''}`)
     const s = result.summary

@@ -178,17 +178,17 @@ export class RssApi extends TypertRemoteService {
   }
 
   /**
-   * Trigger a warm sync. Pass the current sessionId to receive durable
-   * rss/sync-* events in that conversation.
+   * Trigger a warm sync. `sessionId` is retained for wire compatibility with
+   * older clients but is no longer used: sync progress never enters the
+   * session log (custom event families there refuse cold history reads), so
+   * status flows through {@link getSyncStatus} instead.
    */
   @Remote
-  async warmSync(limit?: number, timeoutMs?: number, reason?: string, sessionId?: string): Promise<SyncResult> {
-    const session = sessionId ? (this.ctx.sessions.get(sessionId as SessionId) ?? null) : null
+  async warmSync(limit?: number, timeoutMs?: number, reason?: string, _sessionId?: string): Promise<SyncResult> {
     return this.sync.warmSync({
       limit: limit ?? 50,
       timeoutMs: timeoutMs ?? 0,
       reason: reason ?? 'manual',
-      session: session as never,
     })
   }
 
