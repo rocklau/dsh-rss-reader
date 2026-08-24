@@ -14,11 +14,15 @@
  * conversation reconstruction. Header and all other events are copied through
  * unchanged; files without openbook-rss events are left untouched.
  *
- * Artifacts use a concatenated-zstd-frame container (each durable flush is
- * one independently decodable frame). Frames are located with the same
- * structural scan the harness backend uses, decompressed individually,
- * healed as plaintext JSONL, and rewritten as one fresh complete frame —
- * a valid member of that container format.
+ * Artifacts use a concatenated-zstd-frame container whose first frame holds
+ * exactly one line — the header record — while every later frame holds one
+ * durable event batch (multi-line plaintext). Frames are located with the
+ * same structural scan the harness backend uses, decompressed individually,
+ * healed as plaintext JSONL, and rewritten in that layout: header-only first
+ * frame, then fixed-size event-batch frames. Artifacts whose framing violates
+ * the header-frame invariant are re-framed even when no event needs healing.
+ * Every candidate write is validated with the backend's own acceptance rule
+ * before it replaces the original.
  *
  * Usage:
  *   node scripts/heal-openbook-rss-logs.mjs [sessionsRoot] [--dry-run]
@@ -82,7 +86,6 @@ function scanZstdFrames(buffer) {
       offset += 4
     }
     frames.push([start, offset])
-    void constants // zlib import documents the codec pairing; scanner itself is pure bytes
   }
   return { frames }
 }
@@ -95,6 +98,49 @@ function decompressAllFrames(raw) {
   }
   const parts = frames.map(([start, end]) => zstdDecompressSync(raw.subarray(start, end)))
   return Buffer.concat(parts).toString('utf8')
+}
+
+const CHECKSUM_PARAMS = { params: { [constants.ZSTD_c_checksumFlag]: 1 } }
+/** Upper bound on plaintext bytes per rewritten event-batch frame. */
+const FRAME_CHUNK_BYTES = 256 * 1024
+
+/**
+ * Encode JSONL text in the container layout the backend accepts: an
+ * independently decodable header frame (exactly one line), then event-batch
+ * frames of at most {@link FRAME_CHUNK_BYTES} plaintext bytes each.
+ */
+function encodeContainer(text) {
+  const firstNewline = text.indexOf('\n')
+  if (firstNewline === -1) throw new Error('artifact has no header line')
+  const header = text.slice(0, firstNewline + 1)
+  const rest = text.slice(header.length)
+  const chunks = []
+  for (const line of rest.split('\n')) {
+    const last = chunks[chunks.length - 1]
+    if (line !== '' && last !== undefined && last.bytes + line.length + 1 <= FRAME_CHUNK_BYTES) {
+      last.lines.push(line)
+      last.bytes += line.length + 1
+    } else if (line !== '') {
+      chunks.push({ lines: [line], bytes: line.length + 1 })
+    }
+  }
+  return Buffer.concat([
+    zstdCompressSync(Buffer.from(header, 'utf8'), CHECKSUM_PARAMS),
+    ...chunks.map(chunk => zstdCompressSync(Buffer.from(`${chunk.lines.join('\n')}\n`, 'utf8'), CHECKSUM_PARAMS)),
+  ])
+}
+
+/**
+ * Apply the backend's acceptance rule for the first frame: its plaintext must
+ * be exactly one terminated line (`assertZstdHeaderFrame`).
+ */
+function assertHeaderFrameLayout(raw) {
+  const { frames } = scanZstdFrames(raw)
+  if (frames.length === 0) throw new Error('no complete frames')
+  const plaintext = zstdDecompressSync(raw.subarray(frames[0][0], frames[0][1]))
+  if (plaintext.length === 0 || plaintext.indexOf(0x0A) !== plaintext.length - 1) {
+    throw new Error('first frame is not exactly one header line')
+  }
 }
 
 /** Add the ignorable marker to openbook-rss event lines. @returns healed count. */
@@ -135,21 +181,42 @@ let totalHealed = 0
 for (const artifact of artifacts(root)) {
   scanned++
   const raw = readFileSync(artifact)
+  const isZstd = artifact.endsWith('.zstd')
   let text
   try {
-    text = artifact.endsWith('.zstd') ? decompressAllFrames(raw) : raw.toString('utf8')
+    text = isZstd ? decompressAllFrames(raw) : raw.toString('utf8')
   } catch (error) {
     console.error(`SKIP (${error.message}): ${artifact}`)
     continue
   }
+  let framingBroken = false
+  if (isZstd) {
+    try {
+      assertHeaderFrameLayout(raw)
+    } catch {
+      framingBroken = true
+    }
+  }
   const { text: healedText, healed } = healText(text)
-  if (healed === 0) continue
+  if (healed === 0 && !framingBroken) continue
   touched++
   totalHealed += healed
-  console.log(`${dryRun ? 'WOULD HEAL' : 'HEAL'} ${healed} events: ${artifact}`)
+  const reason = [healed > 0 && `${healed} events`, framingBroken && 're-frame'].filter(Boolean).join(' + ')
+  console.log(`${dryRun ? 'WOULD HEAL' : 'HEAL'} (${reason}): ${artifact}`)
   if (dryRun) continue
+  let next = isZstd ? encodeContainer(healedText) : Buffer.from(healedText, 'utf8')
+  if (isZstd) {
+    try {
+      assertHeaderFrameLayout(next)
+      const roundTrip = decompressAllFrames(next)
+      if (roundTrip !== healedText) throw new Error('round-trip mismatch')
+    } catch (error) {
+      console.error(`ABORT (${error.message}): ${artifact} left unchanged`)
+      continue
+    }
+  }
   const tmp = `${artifact}.heal-tmp`
-  writeFileSync(tmp, artifact.endsWith('.zstd') ? zstdCompressSync(Buffer.from(healedText, 'utf8')) : healedText)
+  writeFileSync(tmp, next)
   renameSync(tmp, artifact)
 }
 console.log(`\nscanned ${scanned} artifacts; ${touched} healed; ${totalHealed} events marked ignorable${dryRun ? ' (dry run)' : ''}`)
