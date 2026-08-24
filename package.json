@@ -1,6 +1,6 @@
 {
   "name": "@openbook/dsh-rss-reader",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0-rc.2",
   "description": "OpenBook RSS Reader as a DeepSeek Harness UI plugin: RSS sync, three-column reading view, notes/highlights, agent tools and chat commands",
   "type": "module",
   "main": "lib/index.js",
