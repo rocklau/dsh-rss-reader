@@ -70,7 +70,7 @@ The tarball contains the host/client runtime, declarations, and `cordis.patch.ym
 
 For Desktop development, open **Plugins** in the running application, install `openbook-dsh-rss-reader-0.1.0-rc.2.tgz`, enable the bundle, and restart Desktop when requested. Open a non-blank conversation and select **RSS**, or use the sidebar RSS shortcut. Installing into a CLI Web profile does not install into Desktop's reserved profile. Reading controls do not require a model call; article context and discussion require a live Agent.
 
-The Host resolver must preserve complete npm specifiers such as `punycode/`, which `jsdom` requests through `tr46`. If activation fails with `createRequire.resolve.paths ... not iterable`, the Harness resolver has treated the npm request as the Node builtin `punycode`. Use a Harness checkout with complete-specifier lookup before enabling RSS; the package's peer version alone does not verify that fix. The resolver fix belongs to Harness, not this plugin.
+The Host resolver must preserve complete npm specifiers such as `punycode/`, which `jsdom` requests through `tr46`. If activation fails with `createRequire.resolve.paths ... not iterable`, the Harness resolver has treated the npm request as the Node builtin `punycode`. Use a Harness checkout containing the [resolver fix](https://github.com/rocklau/deepseek-harness/commit/966d0b19621619c57e8f9ed578e82ee6a1b8b9b2) before enabling RSS; the package's peer version alone does not verify that fix. The fix is published in the `rocklau/deepseek-harness` fork on `fix/preserve-npm-subpath-resolution`, not merged into the upstream repository.
 
 ### Tests
 

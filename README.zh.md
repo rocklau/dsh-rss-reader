@@ -62,7 +62,7 @@ tarball 包含宿主/客户端运行代码、类型声明和 `cordis.patch.yml`�
 
 Desktop 开发环境请打开运行中应用的**插件**页面，安装 `openbook-dsh-rss-reader-0.1.0-rc.2.tgz`，启用 bundle，并按提示重启 Desktop。打开非空白会话后选择 **RSS**，或使用侧栏 RSS 快捷入口。安装到 CLI Web profile 不等于安装到 Desktop 的保留 profile。阅读控件无需模型调用；文章上下文与讨论需要实时 Agent。
 
-Host 解析器必须保留完整 npm 标识，例如 `jsdom` 经 `tr46` 请求的 `punycode/`。如果启用时出现 `createRequire.resolve.paths ... not iterable`，说明 Harness 解析器把 npm 请求当成了 Node 内置模块 `punycode`。启用 RSS 前请使用支持完整标识查找的 Harness 检出；仅匹配包的 peer 版本不能确认该修复。解析器修复属于 Harness，不属于本插件。
+Host 解析器必须保留完整 npm 标识，例如 `jsdom` 经 `tr46` 请求的 `punycode/`。如果启用时出现 `createRequire.resolve.paths ... not iterable`，说明 Harness 解析器把 npm 请求当成了 Node 内置模块 `punycode`。启用 RSS 前请使用包含[解析器修复](https://github.com/rocklau/deepseek-harness/commit/966d0b19621619c57e8f9ed578e82ee6a1b8b9b2)的 Harness 检出；仅匹配包的 peer 版本不能确认该修复。修复已发布在 `rocklau/deepseek-harness` fork 的 `fix/preserve-npm-subpath-resolution` 分支，尚未合并到上游仓库。
 
 ### 测试
 
