@@ -2,7 +2,6 @@ import { existsSync, readFileSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { Service, type Context } from '@deepseek-ai/cordis'
 import type { Config } from '../config.ts'
-import { DEFAULT_FEEDS } from '../constants.ts'
 import { loadFromOPML } from '../rss/opml.ts'
 import { RssReader, type FeedHandle } from '../rss/reader.ts'
 import { validateHttpUrl } from '../rss/ssrf.ts'
@@ -63,7 +62,7 @@ export class FeedService extends Service {
       }
     }
     if (imported === 0 && this.reader.feeds.length === 0) {
-      for (const feed of config.defaultFeeds.length > 0 ? config.defaultFeeds : DEFAULT_FEEDS) {
+      for (const feed of config.defaultFeeds) {
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         void this.addFeed(feed.url, feed.name)
       }

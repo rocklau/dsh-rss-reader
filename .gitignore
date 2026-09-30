@@ -1,4 +1,5 @@
 node_modules
+.test-work/
 package-lock.json
 data
 dist

@@ -55,11 +55,10 @@ Typert Remote API; the browser side is a client plugin contributing a
 - Client↔host data flows only through the Typert Remote API; the wire
   contract lives in `client/remote.ts` (descriptors + zod schemas) and must
   stay in sync with `src/services/rssApi.ts` (@Remote methods).
-- Session events emitted by tools/services
-  (`openbook-rss/sync-start|progress|end`, `article-materialized`) are the
-  durable log the client conversation node assembles from; event payload
-  types live in `src/events/rssEvents.ts` and are mirrored in
-  `client/events.ts`.
+- Current sync reports through the Remote status API without appending RSS
+  telemetry to Session logs. The client renders already-loaded historical
+  sync records; payload declarations live in `src/events/rssEvents.ts` and
+  `client/events.ts`. Historical log repair requires a Harness-owned migration.
 - SQL lives only in `src/db/repositories.ts`; migrations only in
   `src/db/schema.ts` (append-only, never edit shipped migrations).
 
@@ -86,14 +85,14 @@ dsh web --patch ./cordis.patch.yml   # local boot with the plugin
 ## Observability
 
 - `OPENBOOK_WEB_VERBOSE` / `OPENBOOK_SYNC_VERBOSE` no longer apply; sync runs
-  log via console and the `rss/sync` conversation node.
+  report results through the Remote status API.
 - `ctx.rssSync.getSyncStatus()` and the `/doctor` command cover health
   checks; the Status tab shows sync statistics and the activity stream.
 
 ## Notes
 
-- The npm-published dsh closure is incomplete for full web boot in some
-  environments (e.g. `@deepseek-ai/dsh-bash` is unpublished); for a full
-  `dsh web` verification, run dsh from a source checkout of
-  deepseek-harness (rc.8) and install this plugin into its profile.
+- The supported runtime is Harness 0.2.0-rc.2 with Cordis 4.0.4. Development dependencies link to the adjacent built Harness checkout; do not restore removed dsh-client-runtime packages.
+- Cordis takes plugin config directly: `ctx.plugin(plugin, config)`, not `{ config }`. Tests use project-local data roots with startup sync disabled.
+- Client Session APIs belong to `dsh-api-session-controller/client`; definitions register through `ctx.uiConversation.events`, selected Session bindings through `ctx.uiSession`, and navigation through `ctx.uiWorkspace`.
+- Host invocation contributions use `ctx.typert.register()`; `ctx.typert.remotes.register()` supplies consumer-side Remote definitions, not Host strict decoders.
 - `node:sqlite` is experimental on Node 22; supported by dsh's engine range.

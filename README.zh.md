@@ -10,7 +10,7 @@ Cordis 服务运行在 dsh 插件运行时里。
 | | |
 |---|---|
 | 包名 | `@openbook/dsh-rss-reader` |
-| 宿主运行时 | Node `^22.19 \|\| >=24`，dsh `>=0.1.0-rc.8` |
+| 宿主运行时 | Node `^22.19 \|\| >=24`，Harness `0.2.0-rc.2`，Cordis `4.0.4`，Schemastery `3.18.4` |
 | 许可 | MIT |
 
 ![](assets/go-to-rss.png)
@@ -32,8 +32,7 @@ Cordis 服务运行在 dsh 插件运行时里。
 - **讨论这篇** — 快捷指令（总结 / 翻译 / 提取要点）+ 自由问题，把文章推进对话
   （`agent.followup`），随后自动切回 **Chat** 标签让你看到回复；先选中文字会把它
   作为高亮片段一并发送。
-- **同步节点** — 每次同步在对话流里渲染为一张紧凑卡片（`rss/sync` 会话节点），
-  由持久化会话事件驱动。
+- **同步状态** — Status 标签显示实时同步结果。`rss/sync` 渲染器可展示已经加载的历史 RSS 事件；当前同步不会向 Session 日志追加自定义遥测事件。
 
 ![](assets/discuss-back-to-chat.png)
 
@@ -48,53 +47,31 @@ Cordis 服务运行在 dsh 插件运行时里。
 
 ## 安装
 
-### 作为 dsh bundle（推荐）
+### 构建本地 bundle
 
-包内置预构建的客户端 bundle（`lib/`）并声明了 `dsh.bundle` + `dsh.client`，
-可直接用插件 CLI 安装。从[最新 release](https://github.com/rocklau/dsh-rss-reader/releases)
-下载 tarball 并添加（无需 npm 账号）：
+本工作副本面向当前本地 Harness，不面向旧版已发布 tarball。仓库目录分别为 `ai/deepseek-harness` 和 `ai/dsh-plugins/dsh-rss-reader`；开发依赖链接到已构建的 Harness 库。先按 Harness 自身的开发说明完成构建。
 
 ```sh
-dsh plugin add https://github.com/rocklau/dsh-rss-reader/releases/download/v0.1.0-rc.1/openbook-dsh-rss-reader-0.1.0-rc.1.tgz
+pnpm install --no-frozen-lockfile
+pnpm typecheck
+pnpm build
+pnpm pack
 ```
 
-这会向 profile 的组合注入 `openbook-rss` 行；浏览器插件由 `lib/client.js` 提供。
-本地检出同理：`dsh plugin add ./dsh-rss-reader`。
+tarball 包含宿主/客户端运行代码、类型声明和 `cordis.patch.yml`。精确 peer 版本要求 Harness `0.2.0-rc.2`、Cordis `4.0.4` 和 Schemastery `3.18.4`，不捆绑旧版 Harness。这些运行时 peer 在包管理器解析时标为可选，避免安装时自动加入第二套框架；实际运行仍由当前 Harness 提供。插件私有依赖仍作为普通依赖安装。浏览器入口为 `lib/client.js`；Session API 来自 `dsh-api-session-controller/client`，节点组装由 `ctx.uiConversation` 提供，Session 选择由 `ctx.uiSession`/`ctx.uiWorkspace` 提供。
 
-```sh
-# 从 npm（发布后）
-dsh plugin --profile web add @openbook/dsh-rss-reader
+Desktop 开发环境请打开运行中应用的**插件**页面，安装 `openbook-dsh-rss-reader-0.1.0-rc.2.tgz`，启用 bundle，并按提示重启 Desktop。打开非空白会话后选择 **RSS**，或使用侧栏 RSS 快捷入口。安装到 CLI Web profile 不等于安装到 Desktop 的保留 profile。阅读控件无需模型调用；文章上下文与讨论需要实时 Agent。
 
-# 然后启动 Web UI
-dsh web
-```
-
-`dsh plugin add` 把包安装进 `web` profile；因为包声明了 `dsh.bundle`，会自动加入该
-profile 的 bundle 列表，无需其他配置。
-
-### 开发（免安装）
-
-```sh
-npm install
-npm run build          # esbuild 打包 + tsc 声明
-dsh web --patch ./cordis.patch.yml
-```
-
-`cordis.patch.yml` 里的 overlay 把插件插入运行中的 web profile；客户端半边（`RSS`
-视图标签）由包的 `dsh.client` 声明自动接入。
+Host 解析器必须保留完整 npm 标识，例如 `jsdom` 经 `tr46` 请求的 `punycode/`。如果启用时出现 `createRequire.resolve.paths ... not iterable`，说明 Harness 解析器把 npm 请求当成了 Node 内置模块 `punycode`。启用 RSS 前请使用支持完整标识查找的 Harness 检出；仅匹配包的 peer 版本不能确认该修复。解析器修复属于 Harness，不属于本插件。
 
 ### 测试
 
 ```sh
-npm test               # 单元测试（node --test）
-npm run test:e2e       # 真实组合 e2e；需要 DSH_SOURCE_DIR
+pnpm test              # build + node --test；项目内隔离测试目录
+pnpm test:e2e          # 已安装宿主的只读检查；没有 DSH_E2E_BASE 时跳过
 ```
 
-e2e 会启动一个真实的 `dsh web` 组合，并用与浏览器相同的传输调用 `rssApi` 端点：
-
-```sh
-DSH_SOURCE_DIR=/path/to/deepseek-harness npm run test:e2e
-```
+`test/current-harness.test.mjs` 使用当前真实 Gateway、工具/命令/Typert 注册表、带稳定标识的 Agent 消息和已构建浏览器 factory。可选 e2e 通过 `DSH_E2E_BASE` 连接已经运行的宿主，需要身份验证时使用 `DSH_E2E_COOKIE`；它不会启动或重启应用。
 
 ## 配置
 
@@ -104,7 +81,7 @@ DSH_SOURCE_DIR=/path/to/deepseek-harness npm run test:e2e
 # cordis.patch.yml
 - id: openbook-rss
   config:
-    dataDir: ~/.dsh/openbook-rss/v1     # sqlite + markdown + notes + index.json
+    dataDir: /absolute/existing/openbook-rss/v1 # 保留现有数据目录
     allowPrivateFeeds: false            # SSRF 防护：拦截 DNS 私网段
     startupSync: true                   # 启动时热同步
     startupSyncLimit: 50
@@ -117,6 +94,12 @@ DSH_SOURCE_DIR=/path/to/deepseek-harness npm run test:e2e
     defaultFeeds: [{ url: "...", name: "..." }]
     opmlFiles: []                       # 启动时导入的 OPML 绝对路径
 ```
+
+默认 `dataDir` 是 Harness home paths 解析的 `$DSH_HOME/openbook-rss/v1`。覆盖时请使用绝对路径，插件不展开 `~`。保留原路径即可保留 SQLite、文章、笔记与索引。`src/db/schema.ts` 中的 SQLite schema 世代未修改。`defaultFeeds: []` 禁用初始默认订阅源填充，但不会删除已有订阅源。
+
+阅读上下文与讨论需要已经运行的 Agent。没有实时 Session 时返回 `{ ok: false, reason: 'session not found' }`，没有文章时返回 `article not found`。RPC schema 在服务执行前拒绝无效输入。订阅源/文章抓取失败通过同步状态或操作错误报告；私网订阅源需要显式设置 `allowPrivateFeeds: true`。RSS 标签需要非空白 Session；侧栏快捷入口在有可用项时选择已有非空白 Session。
+
+不要使用旧的 `scripts/heal-openbook-rss-logs.mjs` 改写 Session 文件。该命令拒绝执行且不修改文件，因为已提交的 Session 世代不可变。历史不可忽略 RSS 事件的修复需要 Harness 自身的迁移；本插件不修复或删除用户 Session 数据。
 
 ## 数据模型
 
@@ -142,8 +125,8 @@ SQLite BLOB 兜底。所有请求走共享限流队列，429/5xx 指数退避重
 ## 开发
 
 ```sh
-npm run typecheck       # 宿主 + 客户端两侧
-npm test                # build + node --test（无需网络）
+pnpm typecheck          # 宿主 + 客户端两侧，使用链接的当前库
+pnpm test               # build + node --test（回环网络 fixture，无需外部 API）
 ```
 
 目录结构：
@@ -170,4 +153,4 @@ legacy/     重构前的 Express 代码库，已归档（不随本仓库发布�
 | `cli.js` 命令 | 聊天斜杠命令（`/feeds`、`/book`、`/export-review`…） |
 | `book * --json` | `book_*` 工具 + `/book` |
 | RSSReader + 队列 + 缓存 | `RssReader` 服务（同样的分层缓存） |
-| `data/` 布局 | `dataDir` 下同样的布局（默认 `~/.dsh/openbook-rss/v1`） |
+| `data/` 布局 | 所配置 `dataDir` 下同样的布局；见[配置](#配置) |

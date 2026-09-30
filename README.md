@@ -11,7 +11,7 @@ inside the dsh plugin runtime as native Cordis services.
 | | |
 |---|---|
 | Package | `@openbook/dsh-rss-reader` |
-| Host runtime | Node `^22.19 \|\| >=24`, dsh `>=0.1.0-rc.8` |
+| Host runtime | Node `^22.19 \|\| >=24`, Harness `0.2.0-rc.2`, Cordis `4.0.4`, Schemastery `3.18.4` |
 | License | MIT |
 
 ![](assets/go-to-rss.png)
@@ -38,8 +38,7 @@ Reading and chatting work together:
   free-form question push the article into the conversation (`agent.followup`),
   then the view automatically switches back to the **Chat** tab so you see the
   reply. Selecting text first attaches it as a highlighted passage.
-- **Sync nodes** — each sync run renders as one compact card in the chat flow
-  (`rss/sync` conversation node), driven by durable session events.
+- **Sync status** — the Status tab shows live sync results. The `rss/sync` renderer can display previously loaded RSS events; current sync runs do not append custom telemetry to Session logs.
 
 ![Discussing an article pushes it into the conversation and switches back to Chat](assets/discuss-back-to-chat.png)
 
@@ -56,59 +55,31 @@ The same functionality is available to the agent:
 
 ## Installation
 
-### As a dsh bundle (recommended)
+### Build a local bundle
 
-The package ships a pre-built client bundle in `lib/` and declares
-`dsh.bundle` + `dsh.client`, so it installs with the plugin CLI. Grab the
-tarball from the [latest release](https://github.com/rocklau/dsh-rss-reader/releases)
-and add it (no npm account needed):
+This checkout targets the current local Harness, not the old published tarballs. Place the repositories at `ai/deepseek-harness` and `ai/dsh-plugins/dsh-rss-reader`; the development dependencies link to the built Harness libraries. Build the Harness first using its own development instructions.
 
 ```sh
-dsh plugin add https://github.com/rocklau/dsh-rss-reader/releases/download/v0.1.0-rc.1/openbook-dsh-rss-reader-0.1.0-rc.1.tgz
+pnpm install --no-frozen-lockfile
+pnpm typecheck
+pnpm build
+pnpm pack
 ```
 
-This injects the `openbook-rss` row into your profile's composition; the
-browser plugin is served from `lib/client.js`. A local checkout works the
-same way: `dsh plugin add ./dsh-rss-reader`.
+The tarball contains the host/client runtime, declarations, and `cordis.patch.yml`. Its exact peer versions require Harness `0.2.0-rc.2`, Cordis `4.0.4`, and Schemastery `3.18.4`; it does not bundle an older Harness. These runtime peers are optional for package-manager resolution so installation does not automatically add a second framework; the active Harness must provide them. The plugin's private dependencies remain normal dependencies. The browser entry is `lib/client.js`, with Session APIs from `dsh-api-session-controller/client`, node assembly from `ctx.uiConversation`, and Session selection from `ctx.uiSession`/`ctx.uiWorkspace`.
 
-```sh
-# or from npm (once published)
-dsh plugin --profile web add @openbook/dsh-rss-reader
+For Desktop development, open **Plugins** in the running application, install `openbook-dsh-rss-reader-0.1.0-rc.2.tgz`, enable the bundle, and restart Desktop when requested. Open a non-blank conversation and select **RSS**, or use the sidebar RSS shortcut. Installing into a CLI Web profile does not install into Desktop's reserved profile. Reading controls do not require a model call; article context and discussion require a live Agent.
 
-# then just start the web UI
-dsh web
-```
-
-`dsh plugin add` installs the package into the `web` profile and, because the
-package declares `dsh.bundle`, adds it to the profile's bundle list
-automatically. No other configuration is needed.
-
-### Development (no install)
-
-```sh
-npm install
-npm run build          # esbuild bundles + tsc declarations
-dsh web --patch ./cordis.patch.yml
-```
-
-The overlay in `cordis.patch.yml` inserts the plugin into the running web
-profile. The client half (the `RSS` view tab) is picked up automatically from
-the package's `dsh.client` declaration.
+The Host resolver must preserve complete npm specifiers such as `punycode/`, which `jsdom` requests through `tr46`. If activation fails with `createRequire.resolve.paths ... not iterable`, the Harness resolver has treated the npm request as the Node builtin `punycode`. Use a Harness checkout with complete-specifier lookup before enabling RSS; the package's peer version alone does not verify that fix. The resolver fix belongs to Harness, not this plugin.
 
 ### Tests
 
 ```sh
-npm test               # unit suites (node --test)
-npm run test:e2e       # real-composition e2e; needs DSH_SOURCE_DIR
+pnpm test              # build + node --test; isolated project-local fixtures
+pnpm test:e2e          # read-only installed-host checks; skips without DSH_E2E_BASE
 ```
 
-The e2e boots a real `dsh web` composition and invokes the `rssApi` endpoints
-over the same transport the browser uses. Point it at a DeepSeek Harness
-source checkout:
-
-```sh
-DSH_SOURCE_DIR=/path/to/deepseek-harness npm run test:e2e
-```
+`test/current-harness.test.mjs` exercises the actual current Gateway, tool/command/Typert registries, identified Agent messages, and the built browser factory. The optional e2e uses `DSH_E2E_BASE` for an already-running host and `DSH_E2E_COOKIE` when authentication requires it; it never starts or restarts an application.
 
 ## Configuration
 
@@ -118,7 +89,7 @@ All options are validated at load and overridable from a patch overlay:
 # cordis.patch.yml
 - id: openbook-rss
   config:
-    dataDir: ~/.dsh/openbook-rss/v1     # sqlite + markdown + notes + index.json
+    dataDir: /absolute/existing/openbook-rss/v1 # preserve your existing data root
     allowPrivateFeeds: false            # SSRF guard: block DNS private ranges
     startupSync: true                   # warm sync at boot
     startupSyncLimit: 50
@@ -131,6 +102,12 @@ All options are validated at load and overridable from a patch overlay:
     defaultFeeds: [{ url: "...", name: "..." }]
     opmlFiles: []                       # absolute OPML paths imported at boot
 ```
+
+The default `dataDir` is `$DSH_HOME/openbook-rss/v1` as resolved by Harness home paths. Supply an absolute path when overriding it; the plugin does not expand `~`. Keep the same path to preserve SQLite, articles, notes, and indexes. SQLite schema generations in `src/db/schema.ts` are unchanged. `defaultFeeds: []` suppresses initial default-feed seeding; it never removes stored feeds.
+
+Reading context and discussion require an already-live Agent. Missing live Sessions return `{ ok: false, reason: 'session not found' }`; missing articles return `article not found`. RPC schemas reject invalid inputs before service execution. Failed feed/article fetches are reported through sync status or operation errors; private-network feeds require an explicit `allowPrivateFeeds: true`. The RSS tab requires a non-blank Session; the sidebar shortcut selects an existing non-blank Session when available.
+
+Do not use the legacy `scripts/heal-openbook-rss-logs.mjs` to rewrite Session files. It refuses execution without changing files because committed Session generations are immutable. Repairing historical non-ignorable RSS events requires a Harness-owned migration; this plugin does not repair or delete user Session data.
 
 ## Data model
 
@@ -160,8 +137,8 @@ unless `allowPrivateFeeds: true`).
 ## Development
 
 ```sh
-npm run typecheck       # host + client faces
-npm test                # build + node --test (no network required)
+pnpm typecheck          # host + client faces against linked current libraries
+pnpm test               # build + node --test (loopback fixtures, no external API)
 ```
 
 Layout:
@@ -191,4 +168,4 @@ with its chat renderer.
 | `cli.js` commands | chat slash commands (`/feeds`, `/book`, `/export-review`, …) |
 | `book * --json` | `book_*` tools + `/book` |
 | RSSReader + queue + cache | `RssReader` service (same layered cache) |
-| `data/` layout | same layout under `dataDir` (default `~/.dsh/openbook-rss/v1`) |
+| `data/` layout | same layout under the configured `dataDir`; see [Configuration](#configuration) |

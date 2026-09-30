@@ -1,6 +1,6 @@
 /** Chat renderer for one rss/sync node: a compact sync-run card. */
 import { memo } from 'react'
-import type { ChatNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ChatNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { RssSyncChatData } from './syncDefinition.ts'
 
 export interface SyncNodeViewProps {
@@ -16,7 +16,7 @@ const STATUS_LABEL: Record<RssSyncChatData['status'], string> = {
 
 /** One OpenBook sync run card in the chat flow. */
 export const SyncNodeView = memo(function SyncNodeView({ node }: SyncNodeViewProps) {
-  const data = node.data as RssSyncChatData
+  const data = node.data
   const summary = data.summary
   return (
     <div

@@ -1,12 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { testDirectory } from './fixtures.mjs'
 import { join } from 'node:path'
 import { openRssDatabase, Repositories, withTransaction } from '../lib/internal.js'
 
-test('migrations create the full schema', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'openbook-db-'))
+test('migrations create the full schema', t => {
+  const dir = testDirectory(t)
   const db = openRssDatabase(join(dir, 'test.db'))
   const tables = db.prepare(`SELECT name FROM sqlite_master WHERE type='table'`).all().map((r) => r.name)
   for (const expected of ['feeds', 'fetch_cache', 'feed_sync_state', 'feed_sync_log', 'articles', 'article_state', 'article_notes', 'activity_log']) {
@@ -15,8 +14,8 @@ test('migrations create the full schema', () => {
   db.close()
 })
 
-test('repositories round-trip feeds, articles, state, notes, activity', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'openbook-repo-'))
+test('repositories round-trip feeds, articles, state, notes, activity', t => {
+  const dir = testDirectory(t)
   const db = openRssDatabase(join(dir, 'test.db'))
   const repos = new Repositories(db)
 
@@ -78,8 +77,8 @@ test('repositories round-trip feeds, articles, state, notes, activity', () => {
   db.close()
 })
 
-test('withTransaction rolls back on throw', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'openbook-tx-'))
+test('withTransaction rolls back on throw', t => {
+  const dir = testDirectory(t)
   const db = openRssDatabase(join(dir, 'test.db'))
   const repos = new Repositories(db)
   assert.throws(() => withTransaction(db, () => {

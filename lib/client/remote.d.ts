@@ -1,4 +1,4 @@
-import type { RemoteResult, TypertClientRemote, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol';
+import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol';
 import type { ActivityItem, ArticleView, FeedInfo, MaterializeResult, StateUpdateResult, SyncResult, SyncStatus } from './types.ts';
 export declare const TYPERT_REMOTE: TypertRemoteContribution;
 export default TYPERT_REMOTE;
@@ -90,11 +90,5 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     }
     interface TypertRemoteNamespaceMap {
         rssApi: TypertRemoteNamespace$727373417069;
-    }
-}
-declare module '@deepseek-ai/cordis' {
-    interface Context {
-        /** Client Remote API gateway (provided by the web shell). */
-        remote: TypertClientRemote;
     }
 }

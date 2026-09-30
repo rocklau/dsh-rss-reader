@@ -70,8 +70,7 @@ function emptySyncState(): SyncState {
 }
 
 /**
- * Runs warm syncs (feed fetch + article persistence) with a status machine,
- * and emits durable session events when a session is supplied.
+ * Runs warm syncs (feed fetch + article persistence) and publishes live status.
  */
 export class SyncService extends Service {
   static inject = ['rssStore', 'rssFeed', 'rssArticle']
@@ -113,12 +112,9 @@ export class SyncService extends Service {
    * Fetch feeds, persist new articles, and summarize. Re-entrant: a second
    * call while one run is in flight returns the in-flight run.
    *
-   * Sync progress is deliberately NOT written into the session log: custom
-   * event families cannot be marked `ignorable` through the current
-   * `Session.append()` surface, so a log containing them is refused outright
-   * by any cold history read (`SessionFormatUnsupportedError`) — poisoning
-   * every session the sync ever ran in. Live status flows through
-   * {@link getSyncStatus} / rssApi instead.
+   * Sync telemetry is not appended to Session logs. The Remote status API
+   * remains available without a live Agent and without installing custom
+   * Session event decoders on detached history readers.
    */
   async warmSync(options: SyncOptions = {}): Promise<SyncResult> {
     if (this.state.inFlight) return this.state.inFlight

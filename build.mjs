@@ -6,7 +6,7 @@
  * - lib/invariant.js   host invariant stub
  * - lib/client.js      browser bundle in the dsh closure-factory format
  *                      (window.__ModuleLoader__.load({id, factory}))
- * - lib/types/*.d.ts   host declaration files (via tsc)
+ * - lib/              host declaration files and subdirectories (via tsc)
  * - lib/client/*.d.ts  browser declaration files (via tsc)
  */
 import { build } from 'esbuild'
@@ -24,9 +24,11 @@ const CLIENT_EXTERNALS = [
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-ui-primitives',
   // preloaded dynamic rows
-  '@deepseek-ai/dsh-client-runtime/client',
+  '@deepseek-ai/dsh-api-session-controller/client',
   // other plugin rows our client code reaches at runtime
   '@deepseek-ai/dsh-client-ui-conversation/client',
+  '@deepseek-ai/dsh-client-ui-chat/client',
+  '@deepseek-ai/dsh-client-ui-session/client',
 ]
 
 const HOST_EXTERNALS = [
@@ -70,6 +72,8 @@ await build({
   outfile: 'lib/client.js',
   format: 'cjs',
   platform: 'browser',
+  // Zod's generated-code strings contain whitespace-only lines.
+  supported: { 'template-literal': false },
   target: 'es2022',
   jsx: 'automatic',
   external: CLIENT_EXTERNALS,
@@ -78,7 +82,7 @@ await build({
 })
 
 // --- declarations -----------------------------------------------------------
-execFileSync('npx', ['tsc', '-p', 'tsconfig.json'], { stdio: 'inherit' })
-execFileSync('npx', ['tsc', '-p', 'tsconfig.client.json'], { stdio: 'inherit' })
+execFileSync(process.execPath, ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.build.json'], { stdio: 'inherit' })
+execFileSync(process.execPath, ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.client.json'], { stdio: 'inherit' })
 
 console.log('[build] done: lib/index.js lib/invariant.js lib/client.js + declarations')

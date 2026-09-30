@@ -12,7 +12,6 @@ import type {
   InvocationDescriptor,
   InvocationParameterDescriptor,
   RemoteResult,
-  TypertClientRemote,
   TypertCodec,
   TypertRemoteContribution,
   TypertSchema,
@@ -182,17 +181,18 @@ const discussRequestSchema = z.object({
 
 /* ------------------------------------------------------------- descriptor */
 
-const json = <T>(name: string, schema: TypertSchema<T>): InvocationParameterDescriptor => ({
+const json = <T>(name: string, schema: z.ZodType<T>): InvocationParameterDescriptor => ({
   name,
   wire: name,
   source: 'json',
-  codec: { mode: 'strict', typeSymbol: `@openbook/dsh-rss-reader#${name}`, schema },
+  ...(schema.safeParse(undefined).success ? { acceptsUndefined: true } : {}),
+  codec: { mode: 'strict', typeSymbol: `@openbook/dsh-rss-reader#${name}`, create: () => schema },
 })
 
 const resultOf = <T>(method: string, schema: TypertSchema<T>): TypertCodec => ({
   mode: 'strict',
   typeSymbol: `@openbook/dsh-rss-reader#${method}:result`,
-  schema,
+  create: () => schema,
 })
 
 const descriptor = (
@@ -283,12 +283,5 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 
   interface TypertRemoteNamespaceMap {
     rssApi: TypertRemoteNamespace$727373417069
-  }
-}
-
-declare module '@deepseek-ai/cordis' {
-  interface Context {
-    /** Client Remote API gateway (provided by the web shell). */
-    remote: TypertClientRemote
   }
 }

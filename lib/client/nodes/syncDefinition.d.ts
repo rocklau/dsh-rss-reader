@@ -1,9 +1,9 @@
 /**
  * Conversation node assembling OpenBook sync runs from the durable
- * rss/sync-* session events into one chat card.
+ * openbook-rss/sync-* Session events into one chat card.
  */
 import type { Context } from '@deepseek-ai/cordis';
-import type { ConversationNodeDefinition } from '@deepseek-ai/dsh-client-runtime/client';
+import type { ConversationNodeDefinition } from '@deepseek-ai/dsh-client-ui-conversation/client';
 import type { RssArticleMaterializedData } from '../events.ts';
 import type { RssSyncSummary } from '../types.ts';
 /** Rendered chat card data. */
@@ -17,12 +17,12 @@ export interface RssSyncChatData {
     summary: RssSyncSummary | null;
     error?: string;
 }
-declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
+declare module '@deepseek-ai/dsh-client-ui-chat/client' {
     interface ChatNodeDataMap {
         'rss/sync': RssSyncChatData;
     }
 }
-declare module '@deepseek-ai/dsh-client-runtime/client' {
+declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
     interface ConversationStepDataMap {
         'rss/sync': RssSyncChatData;
     }

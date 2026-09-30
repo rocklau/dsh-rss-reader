@@ -1,8 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtempSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { testDirectory } from './fixtures.mjs'
 import { join } from 'node:path'
 import { openRssDatabase, Repositories, FetchQueue, RssReader } from '../lib/internal.js'
 
@@ -28,7 +27,7 @@ const RSS_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </channel>
 </rss>`
 
-test('RssReader fetches, caches, and honors the min-interval skip', async () => {
+test('RssReader fetches, caches, and honors the min-interval skip', async t => {
   let hits = 0
   const server = createServer((req, res) => {
     hits += 1
@@ -36,10 +35,11 @@ test('RssReader fetches, caches, and honors the min-interval skip', async () => 
     res.end(RSS_XML.replaceAll('PORT', String(server.address().port)))
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve) }))
   const port = server.address().port
   const url = `http://127.0.0.1:${port}/rss`
 
-  const dir = mkdtempSync(join(tmpdir(), 'openbook-reader-'))
+  const dir = testDirectory(t)
   const db = openRssDatabase(join(dir, 'test.db'))
   const repos = new Repositories(db)
   const queue = new FetchQueue({ concurrency: 2, intervalCap: 100, intervalMs: 10 })

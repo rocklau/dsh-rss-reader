@@ -17,9 +17,9 @@ import type {
   InvocationDescriptor,
   InvocationParameterDescriptor,
   TypertCodec,
-  TypertRemoteContribution,
   TypertSchema,
 } from '@deepseek-ai/dsh-typert-protocol'
+import type { TypertContribution } from '@deepseek-ai/dsh-typert-registry'
 
 const feedInfoSchema = z.object({
   url: z.string(),
@@ -172,17 +172,18 @@ const discussRequestSchema = z.object({
   highlight: z.string().optional(),
 })
 
-const json = <T>(name: string, schema: TypertSchema<T>): InvocationParameterDescriptor => ({
+const json = <T>(name: string, schema: z.ZodType<T>): InvocationParameterDescriptor => ({
   name,
   wire: name,
   source: 'json',
-  codec: { mode: 'strict', typeSymbol: `@openbook/dsh-rss-reader#${name}`, schema },
+  ...(schema.safeParse(undefined).success ? { acceptsUndefined: true } : {}),
+  codec: { mode: 'strict', typeSymbol: `@openbook/dsh-rss-reader#${name}`, create: () => schema },
 })
 
 const resultOf = <T>(method: string, schema: TypertSchema<T>): TypertCodec => ({
   mode: 'strict',
   typeSymbol: `@openbook/dsh-rss-reader#${method}:result`,
-  schema,
+  create: () => schema,
 })
 
 const descriptor = (
@@ -201,9 +202,12 @@ const descriptor = (
 })
 
 /** Host-registered rssApi contribution; mirrors client/remote.ts. */
-export const RSS_API_CONTRIBUTION: TypertRemoteContribution = {
+export const RSS_API_CONTRIBUTION: TypertContribution = {
   package: '@openbook/dsh-rss-reader',
-  descriptors: [
+  face: 'host',
+  schemas: [],
+  model: { services: [], events: [], objects: [] },
+  invocations: [
     descriptor('listFeeds', [], z.array(feedInfoSchema)),
     descriptor('addFeed', [json('url', z.string()), json('name', z.string().optional())], addFeedResultSchema),
     descriptor('listArticles', [json('limit', z.number().optional())], z.array(articleSchema)),

@@ -23,11 +23,8 @@ export const inject = ['commands', 'tools', 'typert']
  * @param config - validated plugin configuration.
  */
 export function apply(ctx: Context, config: ConfigType): void {
-  // Register the rssApi Remote contribution into the host typert registry so
-  // the gateway claims every rssApi endpoint via ctx.typert.local — reliable
-  // regardless of plugin load order (the @Remote-marker fallback is cached on
-  // first use and can miss a late-loading plugin, yielding HTTP 404).
-  ctx.typert.remotes.register(RSS_API_CONTRIBUTION)
+  // Host invocation descriptors enable strict decoding at the Gateway.
+  ctx.typert.register(RSS_API_CONTRIBUTION)
 
   // Service construction order follows the inject graph; each Service
   // registers itself on ctx by its key.
@@ -44,13 +41,16 @@ export function apply(ctx: Context, config: ConfigType): void {
 
   if (config.startupSync) {
     // Defer so the process can finish loading other plugins first.
-    setImmediate(() => {
-      void ctx.rssSync.warmSync({
-        limit: config.startupSyncLimit,
-        reason: 'startup',
-      }).catch(error => {
-        console.error('[openbook-rss] startup sync failed:', (error as Error).message)
+    ctx.effect(() => {
+      const timer = setImmediate(() => {
+        void ctx.rssSync.warmSync({
+          limit: config.startupSyncLimit,
+          reason: 'startup',
+        }).catch(error => {
+          console.error('[openbook-rss] startup sync failed:', error)
+        })
       })
-    })
+      return () => clearImmediate(timer)
+    }, 'openbook-rss:startup-sync')
   }
 }

@@ -17,8 +17,7 @@ export declare const inject: string[];
  *
  * The host `rssApi` namespace is mounted by `ctx.remote.$mount()`, which
  * registers it as the `remote.rssApi` service. Data-loading surfaces wait on
- * that service via `ctx.inject([...])`, then obtain the namespace through
- * `scope.get('remote.rssApi')` (which bypasses the inject-sensitive ctx
- * property proxy) and build the view data API from it.
+ * that service via `ctx.inject([...])` and build the view data API from the
+ * typed namespace.
  */
 export declare function apply(ctx: Context): void;

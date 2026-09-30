@@ -9,5 +9,5 @@
     - id: openbook-rss
       name: '@openbook/dsh-rss-reader'
       # config:
-      #   dataDir: ~/.dsh/openbook-rss/v1
+      #   dataDir: /absolute/existing/openbook-rss/v1
       #   startupSync: true

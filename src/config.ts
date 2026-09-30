@@ -35,7 +35,7 @@ export interface Config {
 /** Default data directory: $DSH_HOME/openbook-rss/v1. */
 const DEFAULT_DATA_DIR = dshHomePath('openbook-rss', 'v1')
 
-export const Config: Schema<Config> = Schema.object({
+const configSchema = Schema.object({
   dataDir: Schema.string().default(DEFAULT_DATA_DIR),
   allowPrivateFeeds: Schema.boolean().default(false),
   startupSync: Schema.boolean().default(true),
@@ -54,3 +54,6 @@ export const Config: Schema<Config> = Schema.object({
   // No OPML bundled by default; point this at your own .opml files to import.
   opmlFiles: Schema.array(Schema.string()).default([]),
 })
+
+/** Validates configuration input and supplies all runtime defaults. */
+export const Config: Schema<Config> = configSchema

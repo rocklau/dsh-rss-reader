@@ -1,13 +1,21 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 import type { Context } from '@deepseek-ai/cordis'
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import { SessionId } from '@deepseek-ai/dsh-session'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ArticleService, ArticleView, MaterializeResult, StateUpdateResult } from './articleService.ts'
 import type { ActivityService, ActivityItem } from './activityService.ts'
 import type { FeedService, FeedInfo } from './feedService.ts'
 import type { SyncResult, SyncService, SyncStatus } from './syncService.ts'
 import type { RssStore } from './rssStore.ts'
+
+declare module '@deepseek-ai/dsh-llm/types' {
+  interface MessageSourceMap {
+    /** Article context and discussion submitted by the RSS reader. */
+    'openbook-rss': { readonly kind: 'openbook-rss' }
+  }
+}
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -81,16 +89,9 @@ export class RssApi extends TypertRemoteService {
     return this.ctx.rssSync
   }
 
-  /**
-   * Resolve the session's agent through the global service store. `ctx.get()`
-   * bypasses the inject-sensitive ctx property proxy — the `agents` registry is
-   * a framework service this remote surface did not declare, and `@Remote`
-   * invocations run outside any fiber that declared it.
-   */
-  private resolveAgent(sessionId: string): { followup(message: unknown): void; inject(message: unknown): void } | undefined {
-    const agents = this.ctx.get('agents') as { get: (id: string) => { followup(message: unknown): void; inject(message: unknown): void } | undefined } | undefined
-    if (agents === undefined) return undefined
-    return agents.get(sessionId)
+  /** Resolve only an already-live Agent; reading does not resume stored Sessions. */
+  private resolveAgent(sessionId: string): Agent | undefined {
+    return this.ctx.agents.get(SessionId(sessionId))
   }
 
   /** List feeds with latest sync metadata. */
@@ -178,10 +179,8 @@ export class RssApi extends TypertRemoteService {
   }
 
   /**
-   * Trigger a warm sync. `sessionId` is retained for wire compatibility with
-   * older clients but is no longer used: sync progress never enters the
-   * session log (custom event families there refuse cold history reads), so
-   * status flows through {@link getSyncStatus} instead.
+   * Trigger a warm sync. The optional Session id is accepted but unused;
+   * progress is available through {@link syncStatus}, not Session telemetry.
    */
   @Remote
   async warmSync(limit?: number, timeoutMs?: number, reason?: string, _sessionId?: string): Promise<SyncResult> {
@@ -219,7 +218,7 @@ export class RssApi extends TypertRemoteService {
 
     agent.inject(createUserMessage({
       content: [{ type: 'text', text }],
-      source: { kind: 'plugin', plugin: 'openbook-rss' },
+      source: { kind: 'openbook-rss' },
     }))
     return { ok: true }
   }
@@ -253,7 +252,7 @@ export class RssApi extends TypertRemoteService {
 
     agent.followup(createUserMessage({
       content: [{ type: 'text', text: lines.filter(l => l !== undefined).join('\n') }],
-      source: { kind: 'plugin', plugin: 'openbook-rss' },
+      source: { kind: 'openbook-rss' },
     }))
     return { ok: true }
   }
